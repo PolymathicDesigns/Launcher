@@ -394,7 +394,12 @@ void WorldListPage::on_actionCopy_triggered()
 
     if (ok && name.length() > 0)
     {
-        world->install(m_worlds->dir().absolutePath(), name);
+        if(!world->install(m_worlds->dir().absolutePath(), name))
+        {
+            QMessageBox::warning(this, tr("Copy world"),
+                tr("Could not copy the world \"%1\". The destination may contain an incomplete copy. "
+                   "Check available disk space and file permissions before trying again.").arg(world->name()));
+        }
     }
 }
 
