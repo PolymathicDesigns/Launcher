@@ -44,6 +44,19 @@ InstanceImportTask::InstanceImportTask(const QUrl sourceUrl)
     m_sourceUrl = sourceUrl;
 }
 
+bool InstanceImportTask::canAbort() const
+{
+    return m_filesNetJob && m_filesNetJob->isRunning() && m_filesNetJob->canAbort();
+}
+
+bool InstanceImportTask::abort()
+{
+    if(!canAbort()) return false;
+    // Aborting may synchronously emit failed and reset m_filesNetJob.
+    auto job = m_filesNetJob;
+    return job->abort();
+}
+
 void InstanceImportTask::executeTask()
 {
     if (m_sourceUrl.isLocalFile())
