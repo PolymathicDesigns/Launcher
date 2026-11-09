@@ -261,7 +261,7 @@ void IconList::installIcons(const QStringList &iconFiles)
         QFileInfo fileinfo(file);
         if (!fileinfo.isReadable() || !fileinfo.isFile())
             continue;
-        QString target = FS::PathCombine(m_dir.dirName(), fileinfo.fileName());
+        QString target = m_dir.absoluteFilePath(fileinfo.fileName());
 
         QString suffix = fileinfo.suffix();
         if (suffix != "jpeg" && suffix != "png" && suffix != "jpg" && suffix != "ico" && suffix != "svg" && suffix != "gif")
@@ -278,7 +278,7 @@ void IconList::installIcon(const QString &file, const QString &name)
     if(!fileinfo.isReadable() || !fileinfo.isFile())
         return;
 
-    QString target = FS::PathCombine(m_dir.dirName(), name);
+    QString target = m_dir.absoluteFilePath(name);
 
     QFile::copy(file, target);
 }
