@@ -121,6 +121,11 @@ add_unit_test(ThemeWriter
     LIBS Launcher_logic
     )
 
+add_unit_test(WorldList
+    SOURCES minecraft/WorldList_test.cpp
+    LIBS Launcher_logic
+    )
+
 add_unit_test(GZip
     SOURCES GZip_test.cpp
     LIBS Launcher_logic

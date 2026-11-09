@@ -332,8 +332,9 @@ Qt::DropActions WorldList::supportedDragActions() const
 
 Qt::DropActions WorldList::supportedDropActions() const
 {
-    // copy from outside, move from within and other mod lists
-    return Qt::CopyAction | Qt::MoveAction;
+    // Importing copies recognized worlds and may skip unsupported files. Never
+    // authorize the drag source to delete the original files after a drop.
+    return Qt::CopyAction;
 }
 
 void WorldList::installWorld(QFileInfo filename)
