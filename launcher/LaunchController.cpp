@@ -231,6 +231,13 @@ void LaunchController::login() {
                 }
                 auto task = m_accountToUse->currentTask();
                 progDialog.execWithTask(task.get());
+                if(task && !task->wasSuccessful() && m_accountToUse->accountState() == AccountState::Errored)
+                {
+                    // A service error cannot be repaired by immediately repeating
+                    // the same refresh. Leave retrying to a new launch attempt.
+                    emitFailed(tr("Account refresh failed: %1").arg(task->failReason()));
+                    return;
+                }
                 continue;
             }
             // FIXME: this is missing - the meaning is that the account is queued for refresh and we should wait for that
