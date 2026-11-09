@@ -460,6 +460,11 @@ void InstanceList::add(const QList<InstancePtr> &t)
     for(auto & ptr : t)
     {
         connect(ptr.get(), &BaseInstance::propertiesChanged, this, &InstanceList::propertiesChanged);
+        auto instance = ptr.get();
+        connect(instance, &BaseInstance::runningStatusChanged, this, [this, instance](bool)
+        {
+            propertiesChanged(instance);
+        });
     }
     endInsertRows();
 }
