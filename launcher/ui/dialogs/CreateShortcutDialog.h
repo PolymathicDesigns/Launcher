@@ -45,6 +45,6 @@ private:
     void createShortcut();
 
 #ifdef Q_OS_WIN
-    void createWindowsLink(LPCSTR target, LPCSTR workingDir, LPCSTR args, LPCSTR filename, LPCSTR desc, LPCSTR iconPath);
+    void createWindowsLink(const QString &target, const QString &workingDir, const QString &args, const QString &filename, const QString &desc, const QString &iconPath);
 #endif
 };

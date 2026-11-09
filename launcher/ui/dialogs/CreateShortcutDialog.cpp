@@ -220,44 +220,41 @@ void CreateShortcutDialog::createShortcut()
             iconPixmap.save(QDir::currentPath() + "/icons/shortcut-icon.ico");
         }
         
-        createWindowsLink(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()).toStdString().c_str(),
-                          QDir::toNativeSeparators(QDir::currentPath()).toStdString().c_str(),
-                          getLaunchArgs().toStdString().c_str(),
-                          ui->shortcutPath->text().toStdString().c_str(),
-                          (m_instance->name() + " - " + BuildConfig.LAUNCHER_DISPLAYNAME).toStdString().c_str(),
-                          QDir::toNativeSeparators(QDir::currentPath() + "/icons/shortcut-icon.ico").toStdString().c_str()
+        createWindowsLink(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()),
+                          QDir::toNativeSeparators(QDir::currentPath()),
+                          getLaunchArgs(),
+                          ui->shortcutPath->text(),
+                          (m_instance->name() + " - " + BuildConfig.LAUNCHER_DISPLAYNAME),
+                          QDir::toNativeSeparators(QDir::currentPath() + "/icons/shortcut-icon.ico")
                           );
     }
 #endif
 }
 
 #ifdef Q_OS_WIN
-void CreateShortcutDialog::createWindowsLink(LPCSTR target, LPCSTR workingDir, LPCSTR args, LPCSTR filename,
-                                             LPCSTR desc, LPCSTR iconPath)
+void CreateShortcutDialog::createWindowsLink(const QString &target, const QString &workingDir, const QString &args, const QString &filename,
+                                             const QString &desc, const QString &iconPath)
 {
     HRESULT result;
-    IShellLink *link;
+    IShellLinkW *link;
 
     CoInitialize(nullptr);
-    result = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID *) &link);
+    result = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID *) &link);
     if (SUCCEEDED(result))
     {
         IPersistFile *file;
 
-        link->SetPath(target);
-        link->SetWorkingDirectory(workingDir);
-        link->SetArguments(args);
-        link->SetDescription(desc);
-        link->SetIconLocation(iconPath, 0);
+        link->SetPath(reinterpret_cast<LPCWSTR>(target.utf16()));
+        link->SetWorkingDirectory(reinterpret_cast<LPCWSTR>(workingDir.utf16()));
+        link->SetArguments(reinterpret_cast<LPCWSTR>(args.utf16()));
+        link->SetDescription(reinterpret_cast<LPCWSTR>(desc.utf16()));
+        link->SetIconLocation(reinterpret_cast<LPCWSTR>(iconPath.utf16()), 0);
 
         result = link->QueryInterface(IID_IPersistFile, (LPVOID *) &file);
 
         if (SUCCEEDED(result))
         {
-            WCHAR path[MAX_PATH];
-            MultiByteToWideChar(CP_ACP, 0, filename, -1, path, MAX_PATH);
-
-            file->Save(path, TRUE);
+            file->Save(reinterpret_cast<LPCWSTR>(filename.utf16()), TRUE);
             file->Release();
         }
         link->Release();
