@@ -630,6 +630,24 @@ void InstanceList::saveGroupList()
     }
 }
 
+void InstanceList::reloadGroups()
+{
+    if(!QFileInfo(m_instDir + "/instgroups.json").exists())
+    {
+        m_instanceGroupIndex.clear();
+        m_groupNameCache.clear();
+        m_collapsedGroups.clear();
+        m_groupsLoaded = true;
+    }
+    else
+    {
+        loadGroupList();
+    }
+    if(!m_instances.isEmpty())
+        emit dataChanged(index(0), index(m_instances.size() - 1), {GroupRole});
+    emit groupsChanged(m_groupNameCache);
+}
+
 void InstanceList::loadGroupList()
 {
     qDebug() << "Will load group list now.";
@@ -685,6 +703,7 @@ void InstanceList::loadGroupList()
 
     QSet<QString> groupSet;
     m_instanceGroupIndex.clear();
+    m_collapsedGroups.clear();
 
     // Iterate through all the groups.
     QJsonObject groupMapping = rootObj.value("groups").toObject();
@@ -723,7 +742,7 @@ void InstanceList::loadGroupList()
         }
     }
     m_groupsLoaded = true;
-    m_groupNameCache.unite(groupSet);
+    m_groupNameCache = groupSet;
     qDebug() << "Group list loaded.";
 }
 

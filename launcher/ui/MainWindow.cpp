@@ -1780,6 +1780,7 @@ void MainWindow::on_actionViewInstanceFolder_triggered()
 void MainWindow::refreshInstances()
 {
     APPLICATION->instances()->loadList();
+    APPLICATION->instances()->reloadGroups();
 }
 
 void MainWindow::on_actionViewCentralModsFolder_triggered()

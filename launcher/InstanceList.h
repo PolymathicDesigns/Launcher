@@ -91,6 +91,7 @@ public:
     }
 
     InstListError loadList();
+    void reloadGroups();
     void saveNow();
 
     InstancePtr getInstanceById(QString id) const;

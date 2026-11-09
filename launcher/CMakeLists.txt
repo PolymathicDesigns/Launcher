@@ -121,6 +121,11 @@ add_unit_test(ThemeWriter
     LIBS Launcher_logic
     )
 
+add_unit_test(InstanceGroups
+    SOURCES InstanceGroups_test.cpp
+    LIBS Launcher_logic
+    )
+
 add_unit_test(GZip
     SOURCES GZip_test.cpp
     LIBS Launcher_logic
