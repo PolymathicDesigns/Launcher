@@ -61,6 +61,7 @@
 
 #include "updater/v1/UpdateChecker.h"
 #include "updater/v2/Checker.h"
+#include "updater/v2/HeadlessUpdate.h"
 #include "updater/v2/SystemRequirements.h"
 
 #include "tools/JProfiler.h"
@@ -257,6 +258,11 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
         // --alive
         parser.addSwitch("alive");
         parser.addDocumentation("alive", "Write a small '" + liveCheckFile + "' file after the launcher starts");
+        // --update
+        parser.addOption("update");
+        parser.addDocumentation("update", "Switch to the given tier (latest, testing, stable) and install its build, newer or older, without any window, and exit: "
+                                          "0 updated, 1 failed, 2 nothing to do, 3 not for this machine. "
+                                          "With --alive, only start and exit. For testing updates");
         // --import
         parser.addOption("import");
         parser.addShortOpt("import", 'I');
@@ -303,6 +309,7 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
         m_offlineName = args["name"].toString();
     }
     m_liveCheck = args["alive"].toBool();
+    m_headlessUpdateTier = args["update"].toString();
     m_zipToImport = args["import"].toUrl();
 
     QString origcwdPath = QDir::currentPath();
@@ -490,7 +497,9 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
      * If there is one, tell it what the user actually wanted to do and exit.
      * We want to initialize this before logging to avoid messing with the log of a potential already running copy.
      */
-    auto appID = ApplicationId::fromPathAndVersion(QDir::currentPath(), BuildConfig.printableVersionString());
+    // with the platform: switching variants installs the same build for another one, and the new
+    // process must not take the old one, still waiting for it to start, for itself
+    auto appID = ApplicationId::fromPathAndVersion(QDir::currentPath(), BuildConfig.printableVersionString() + " on " + BuildConfig.BUILD_PLATFORM);
     {
         // FIXME: you can run the same binaries with multiple data dirs and they won't clash. This could cause issues for updates.
         m_peerInstance = new LocalPeer(this, appID);
@@ -666,6 +675,19 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
         // develop users have and would put them on Latest. Empty until it is chosen (in the
         // setup wizard, UpdatesWizardPage); until then it is Stable.
         m_settings->registerSetting("UpdateTier", QString());
+        // Updater v2's variant the user chose to stay on or go back to; empty: none, the
+        // Launcher moves along `supersedes` (Design/UpdaterFormats.md)
+        m_settings->registerSetting("UpdateVariant", QString());
+        // the last build an automatic check said can't be installed here, so it's said once
+        m_settings->registerSetting("UpdateNotPossibleBuild", 0);
+        // updater v2's checks, to notice that they keep failing (UpdaterV2::CheckHistory):
+        // when one last got a verified answer, when they started failing, and how many have
+        // failed since (times in seconds since 1970, 0 for none)
+        m_settings->registerSetting("UpdateLastSuccess", 0);
+        m_settings->registerSetting("UpdateFailingSince", 0);
+        m_settings->registerSetting("UpdateFailedChecks", 0);
+        // when the deprecation notice for this installation's variant was last shown (seconds)
+        m_settings->registerSetting("UpdateDeprecationNotice", 0);
 
         // Theming
         m_settings->registerSetting("IconTheme", QString("pe_colored"));
@@ -678,6 +700,8 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
 
         // Notifications
         m_settings->registerSetting("ShownNotifications", QString());
+        // questions with a "Don't ask again" (brought back by "Reset hidden notifications")
+        m_settings->registerSetting("ConfirmLogClear", true);
 
         // Remembered state
         m_settings->registerSetting("LastUsedGroupForNewInstance", QString());
@@ -862,6 +886,12 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
         config.statePath = QDir("updater").absoluteFilePath("state.json");
         config.system = SystemRequirements::detect();
         m_updaterV2.reset(new UpdaterV2::Checker(m_network, config));
+        auto setting = m_settings->getSetting("UpdateVariant");
+        m_updaterV2->setPreferredVariant(setting->get().toString());
+        connect(setting.get(), &Setting::SettingChanged, [&](const Setting &, QVariant value)
+        {
+            m_updaterV2->setPreferredVariant(value.toString());
+        });
         qDebug() << "<> Updater v2 started.";
     }
     else if(BuildConfig.UPDATER_ENABLED)
@@ -1009,11 +1039,50 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
         qDebug() << "<> Application theme set.";
     }
 
+    if(!m_headlessUpdateTier.isEmpty())
+    {
+        startHeadlessUpdate();
+        return;
+    }
     if(createSetupWizard())
     {
         return;
     }
     performMainStartupAction();
+}
+
+void Application::startHeadlessUpdate()
+{
+    if(m_liveCheck)
+    {
+        // Restarted by the installer of a headless update: having started is all it waits
+        // for. It also checks that this process still runs (LiveCheck::waitFor, every 250 ms),
+        // so stay a while before exiting.
+        qDebug() << "Update (headless): started with --alive, exiting in 5 seconds";
+        m_status = Application::Initialized;
+        QTimer::singleShot(5000, this, []() { QCoreApplication::exit(0); });
+        return;
+    }
+    UpdaterV2::Tier tier;
+    if(!UpdaterV2::parseTier(m_headlessUpdateTier, tier))
+    {
+        std::cerr << "Update (headless): unknown tier " << m_headlessUpdateTier.toStdString() << std::endl;
+        m_status = Application::Failed;
+        return;
+    }
+    if(!m_updaterV2)
+    {
+        // a build that can't update itself with updater 2: exactly what this mode must catch
+        qWarning() << "Update (headless): this build doesn't use updater 2 (enabled:" << BuildConfig.UPDATER_ENABLED << "version:"
+                   << BuildConfig.UPDATER_VERSION << ")";
+        std::cerr << "Update (headless): this build doesn't use updater 2" << std::endl;
+        m_status = Application::Failed;
+        return;
+    }
+    m_status = Application::Initialized;
+    auto update = new UpdaterV2::HeadlessUpdate(m_updaterV2.get(), m_network, BuildConfig.FILES_MIRRORS.first(), root(), tier, this);
+    // once the event loop runs, so that exiting works even when the check ends right away
+    QTimer::singleShot(0, update, &UpdaterV2::HeadlessUpdate::start);
 }
 
 bool Application::createSetupWizard()
