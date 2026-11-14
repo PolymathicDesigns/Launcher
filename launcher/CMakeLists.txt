@@ -200,6 +200,10 @@ set(UPDATE_SOURCES
     updater/v1/UpdateChecker.cpp
     updater/v1/DownloadTask.h
     updater/v1/DownloadTask.cpp
+
+    # both updaters: waiting for the new build to start
+    updater/LiveCheck.h
+    updater/LiveCheck.cpp
 )
 
 # Updater v2 (Design/Updater.md in the MultiMC repository): used only by builds made with Launcher_UPDATER_VERSION 2
@@ -220,9 +224,18 @@ set(NEW_UPDATE_SOURCES
     updater/v2/InstallController.cpp
     updater/v2/Checker.h
     updater/v2/Checker.cpp
+    updater/v2/CheckHistory.h
+    updater/v2/CheckHistory.cpp
     updater/v2/DownloadTask.h
     updater/v2/DownloadTask.cpp
+    updater/v2/HeadlessUpdate.h
+    updater/v2/HeadlessUpdate.cpp
 )
+
+add_unit_test(UpdaterLiveCheck
+    SOURCES updater/LiveCheck_test.cpp
+    LIBS Launcher_logic
+    )
 
 add_unit_test(UpdaterV1UpdateChecker
     SOURCES updater/v1/UpdateChecker_test.cpp
@@ -276,6 +289,11 @@ add_unit_test(UpdaterV2Checker
     SOURCES updater/v2/Checker_test.cpp
     LIBS Launcher_logic
     DATA updater/v2/testdata
+    )
+
+add_unit_test(UpdaterV2CheckHistory
+    SOURCES updater/v2/CheckHistory_test.cpp
+    LIBS Launcher_logic
     )
 
 add_unit_test(UpdaterV2DownloadTask
@@ -941,6 +959,10 @@ SET(LAUNCHER_SOURCES
     ui/widgets/TierLever.h
     ui/widgets/ConsolePreview.cpp
     ui/widgets/ConsolePreview.h
+    ui/widgets/ColorEdit.cpp
+    ui/widgets/ColorEdit.h
+    ui/widgets/ThemeSampleWidget.cpp
+    ui/widgets/ThemeSampleWidget.h
     ui/widgets/IconThemeSelectionWidget.cpp
     ui/widgets/IconThemeSelectionWidget.h
     ui/widgets/DetailRowDelegate.cpp
